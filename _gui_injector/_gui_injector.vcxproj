@@ -82,6 +82,18 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Static|Win32'">
+    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt_defaults.props')">
     <Import Project="$(QtMsBuild)\qt_defaults.props" />
   </ImportGroup>
@@ -102,7 +114,7 @@
     <QtModules>core;gui;network;widgets</QtModules>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Static|x64'" Label="QtSettings">
-    <QtInstall>msvc2017_64_static</QtInstall>
+    <QtInstall>qt-5.11.2-static-ltcg-msvc2017-x86_64-openssl</QtInstall>
     <QtModules>core;gui;network;widgets</QtModules>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Static|Win32'" Label="QtSettings">
@@ -199,6 +211,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Banner.cpp" />
+    <ClCompile Include="Compress.cpp" />
+    <ClCompile Include="DownloadManager.cpp" />
     <ClCompile Include="GuiMain.cpp" />
     <ClCompile Include="GuiProcess.cpp" />
     <ClCompile Include="main.cpp" />
@@ -219,6 +233,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Banner.h" />
+    <QtMoc Include="DownloadManager.h" />
+    <ClInclude Include="Compress.h" />
     <ClInclude Include="Injection.h" />
     <ClInclude Include="Process.h" />
   </ItemGroup>

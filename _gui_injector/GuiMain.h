@@ -6,8 +6,16 @@
 #include <qtimer.h>
 
 #include "ui_GuiMain.h"
+#include "DownloadManager.h"
 #include "GuiProcess.h"
 #include "Process.h"
+
+enum class UPDATE
+{
+	NOTHING,
+	UPDATE,
+	DOWNLOAD,
+};
 
 class GuiMain : public QMainWindow
 {
@@ -22,10 +30,9 @@ public:
 	static int str_to_arch(const QString str);
 	static QString arch_to_str(const int arch);
 
-
 private:
 	Ui::GuiMainClass ui;
-	GuiProcess* picker = NULL;
+	GuiProcess* gui_Picker = NULL;
 
 	// Design
 	QPalette normalPalette;
@@ -34,19 +41,23 @@ private:
 	QString	 darkSheet;
 
 	// Network
-	QNetworkAccessManager* manager;
+	QNetworkAccessManager*	ver_Manager;
+	DownloadManager			dl_Manager;
+	QString					zipName;
+	QString					onlineVersion;
 
 	// Settings
 	Process_State_Struct*	pss;
 	Process_Struct*			ps_picker;
-	//Process_Struct*			ps_main;
+	//Process_Struct*		ps_main;
 
 	QString		lastPathStr;
 	bool		ignoreUpdate;
-	//int			procType;
+	bool		lightMode;
+	UPDATE		update;
 
-	QTimer* timer;
-	QTimer* delayInjTimer;
+	QTimer* t_Auto_Inj;
+	QTimer* t_Delay_Inj;
 
 public slots:
 	void get_from_picker(Process_State_Struct* procStateStruct, Process_Struct* procStruct);
@@ -59,18 +70,19 @@ private slots:
 	void closeEvent(QCloseEvent* event);
 
 	// Settings
-	void set_rb_proc();
-	void set_rb_pid();
-	void unset_rb();
-	void pick_process();
-	void procName_change();
-	void procID_change();
+	void rb_process_set();
+	void rb_pid_set();
+	void rb_unset_all();
+	void cmb_proc_name_change();
+	void txt_pid_change();
+	void btn_pick_process_click();
 
 	// Auto, Reset
 	void auto_inject();
 	void auto_loop_inject();
 	void reset_settings();
 	void slotReboot();
+	void hook_Scan();
 
 	// Settings, Color
 	void save_settings();
@@ -81,7 +93,7 @@ private slots:
 	// Method, Cloaking, Advanced
 	void load_change(int i);
 	void create_change(int i);
-	void adv_change();
+	void cb_main_clicked();
 
 	// Files
 	void add_file_dialog();
@@ -96,6 +108,10 @@ private slots:
 	void tooltip_change();
 	void open_help();
 	void open_log();
-	void check_version();
+
+	// Update
+	void check_online_version();
 	void replyFinished(QNetworkReply* rep);
+	void download_start();
+	void download_finish();
 };
