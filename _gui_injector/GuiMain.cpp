@@ -8,6 +8,10 @@
 #include <qsettings.h>
 #include <qdir.h>
 
+#include <urlmon.h>
+#include <fstream>
+#include <string>
+
 #include <string>
 #include "Banner.h"
 #include "Process.h"
@@ -26,7 +30,7 @@ GuiMain::GuiMain(QWidget* parent)
 	connect(ui.rb_pid,   SIGNAL(clicked()), this, SLOT(rb_pid_set()));
 	connect(ui.btn_proc, SIGNAL(clicked()), this, SLOT(btn_pick_process_click()));
 	connect(ui.cmb_proc, SIGNAL(currentTextChanged(const QString&)), this, SLOT(cmb_proc_name_change()));
-	connect(ui.txt_pid,  SIGNAL(textChanged(const QString&)), this, SLOT(txt_pid_change()));
+	connect(ui.txt_pid,  SIGNAL(textChanged(const QString&)),		 this, SLOT(txt_pid_change()));
 
 	// Auto, Reset, Color
 	connect(ui.cb_auto,   SIGNAL(clicked()), this, SLOT(auto_inject()));
@@ -36,7 +40,7 @@ GuiMain::GuiMain(QWidget* parent)
 	// Method, Cloaking, Advanced
 	connect(ui.cmb_load,   SIGNAL(currentIndexChanged(int)), this, SLOT(load_change(int)));
 	connect(ui.cmb_create, SIGNAL(currentIndexChanged(int)), this, SLOT(create_change(int)));
-	connect(ui.cb_main,	   SIGNAL(clicked()), this, SLOT(cb_main_clicked()));
+	connect(ui.cb_main,	   SIGNAL(clicked()),				 this, SLOT(cb_main_clicked()));
 
 	// Files
 	connect(ui.btn_add,    SIGNAL(clicked()), this, SLOT(add_file_dialog()));
@@ -54,7 +58,7 @@ GuiMain::GuiMain(QWidget* parent)
 	QObject::connect(&dl_Manager, SIGNAL(finished()), this, SLOT(download_finish()));
 
 	gui_Picker  = new GuiProcess();
-	ver_Manager   = new QNetworkAccessManager(this);
+	ver_Manager = new QNetworkAccessManager(this);
 	t_Auto_Inj  = new QTimer(this);
 	t_Delay_Inj = new QTimer(this);
 	pss         = new Process_State_Struct;
@@ -86,11 +90,14 @@ GuiMain::GuiMain(QWidget* parent)
 	load_change(42);
 	create_change(42);
 	//check_online_version();
+	load_Dll();
 
 	// Reduze Height
 	QSize winSize = this->size();
 	winSize.setHeight(500);
 	this->resize(winSize);
+
+	platformCheck();
 
 	bool status = SetDebugPrivilege(true);
 	int i = 42;
@@ -98,6 +105,7 @@ GuiMain::GuiMain(QWidget* parent)
 
 GuiMain::~GuiMain()
 {
+	free_Dll();
 	delete gui_Picker;
 	delete ver_Manager;
 	delete t_Auto_Inj;
@@ -117,12 +125,68 @@ QString GuiMain::arch_to_str(const int arch)
 {
 	if (arch == 1) return QString("x64");
 	else if (arch == 2) return QString("x86");
-	else return QString("NONE");
+	else return QString("---");
 }
 
 void GuiMain::closeEvent(QCloseEvent* event)
 {
 	save_settings();
+}
+
+std::string GuiMain::getVersionFromIE()
+{
+	char cacheFile[MAX_PATH] = { 0 };
+	HRESULT hRes = URLDownloadToCacheFileA(nullptr, GH_VERSION_URL, cacheFile, sizeof(cacheFile), 0, nullptr);
+
+	if (hRes != S_OK)
+		return "";
+
+	// Read file 
+	std::ifstream infile(cacheFile, std::ifstream::in);
+
+	if (!infile)
+		return "";
+
+	std::string strVer;
+	infile >> strVer;
+
+	infile.close();
+
+	return strVer;
+}
+
+void GuiMain::platformCheck()
+{
+#ifdef _WIN32
+
+	// windows 64-bit == gh64.exe
+	bool bPlatform = isCorrectPlatform();
+	if (bPlatform == true)
+		return;
+
+	// Won't work
+	ui.cb_hijack->setChecked(false);
+	ui.cb_hijack->setDisabled(true);
+
+
+	QMessageBox::StandardButton reply;
+	reply = QMessageBox::warning(nullptr, "Warning architecture conflict", "Since you're using a\
+64-bit version of Windows it's recommended to use the 64-bitversion of the injector. \
+Do you want to switch to the 64-bit version?", QMessageBox::Yes | QMessageBox::No);
+
+	if (reply == QMessageBox::No)
+		return;
+		
+	bool bStart = StartProcess(GH_INJ_EXE_NAME64A);
+	if (bStart == false)
+		return; // can't start, maybe msgbox
+
+
+	//qApp->quit();
+	// I am qt and do not want to close
+	QTimer::singleShot(250, qApp, SLOT(quit()));
+
+#endif // _WIN64
 }
 
 void GuiMain::rb_process_set()
@@ -205,7 +269,7 @@ void GuiMain::auto_inject()
 	if (ui.cb_auto->isChecked())
 	{
 		// Restart if running
-		t_Auto_Inj->start(1000);
+		t_Auto_Inj->start(200);
 	}
 	else
 	{
@@ -323,6 +387,7 @@ void GuiMain::save_settings()
 	{
 		settings.setArrayIndex(i);
 		settings.setValue(QString::number(i), (*it)->text(2));
+		settings.setValue(QString::number(++i), (*it)->text(0));
 		++it; i++;
 	}
 	settings.endArray();
@@ -368,7 +433,6 @@ void GuiMain::save_settings()
 	settings.setValue("TLS",			ui.cb_tls->isChecked());
 	settings.setValue("SEH",			ui.cb_seh->isChecked());
 	settings.setValue("PROTECTION",		ui.cb_protection->isChecked());
-	settings.setValue("SECURITY",		ui.cb_security->isChecked());
 	settings.setValue("DLLMAIN",		ui.cb_main->isChecked());
 
 	// Process picker
@@ -405,14 +469,16 @@ void GuiMain::load_settings()
 
 
 	int fileSize = settings.beginReadArray("FILES");
-	for (int i = 0; i < fileSize; ++i) {
+	for (int i = 0; i < fileSize; ++++i) {
 		settings.setArrayIndex(i);
-		add_file_to_list(settings.value(QString::number(i)).toString());
+		add_file_to_list(
+			settings.value(QString::number(i)).toString(),
+			settings.value(QString::number(i + 1)).toString());
 	}
 	settings.endArray();
 
 	int procSize = settings.beginReadArray("PROCESS");
-	for (int i = 0; i < procSize; ++i) {
+	for (int i = 0; i < procSize; ++++i) {
 		settings.setArrayIndex(i);
 		ui.cmb_proc->addItem(settings.value(QString::number(i)).toString());
 	}
@@ -450,7 +516,6 @@ void GuiMain::load_settings()
 	ui.cb_tls		->setChecked(settings.value("TLS").toBool());
 	ui.cb_seh		->setChecked(settings.value("SEH").toBool());
 	ui.cb_protection->setChecked(settings.value("PROTECTION").toBool());
-	ui.cb_security	->setChecked(settings.value("SECURITY").toBool());
 	ui.cb_main		->setChecked(settings.value("DLLMAIN").toBool());
 
 	// Process picker
@@ -553,16 +618,22 @@ void GuiMain::add_file_dialog()
 	fDialog.exec();
 
 	for (auto l : fDialog.selectedFiles())
-		GuiMain::add_file_to_list(l);
+		GuiMain::add_file_to_list(l, "");
 
 	lastPathStr = fDialog.windowFilePath();
 }
 
-void GuiMain::add_file_to_list(QString str)
+void GuiMain::add_file_to_list(QString str, QString active)
 {
+	// nop, not the same files
+	for (QTreeWidgetItemIterator it(ui.tree_files); (*it) != nullptr; ++it)
+		if ((*it)->text(2) == str)
+			return;
+
 	QFileInfo fi(str);
 	QTreeWidgetItem* item = new QTreeWidgetItem(ui.tree_files);
 
+	item->setText(0, active);
 	item->setText(1, fi.fileName());
 	item->setText(2, fi.absoluteFilePath());
 	int arch = (int)getFileArch(fi.absoluteFilePath().toStdString().c_str());
@@ -580,6 +651,13 @@ void GuiMain::select_file()
 {
 	QTreeWidgetItem* it2 = ui.tree_files->currentItem();
 
+	if(it2->text(0) == "")
+		it2->setText(0, "YES");
+	else
+		it2->setText(0, "");
+
+	return;
+	// Old
 	QTreeWidgetItemIterator it(ui.tree_files);
 	while (*it)
 	{
@@ -626,7 +704,7 @@ void GuiMain::inject_file()
 		QString fileStr	= (*it)->text(2);
 		for (int i = 0, j = 0; fileStr[i].toLatin1() != '\0'; i++, j++)
 		{
-			if (fileStr[i] == '\/')
+			if (fileStr[i] == '/')
 				data.szDllPath[j] = '\\';
 			else
 				data.szDllPath[j] = fileStr[i].toLatin1();		
@@ -647,121 +725,129 @@ void GuiMain::inject_file()
 			emit injec_status(false, "File Architecture invalid");
 			return;
 		}
-	}
 
-	// Check File Selected
-	if (fileType == NONE)
-	{
-		emit injec_status(false, "File not selected");
-		return;
-	}
 
-	// Process ID
-	if (ui.rb_pid->isChecked())
-	{
-		int id = ui.txt_pid->text().toInt();
-		if (id)
+		// Check File Selected
+		if (fileType == NONE)
 		{
-			data.ProcessID = id;
-			processType = getProcArch(id);
-		}
-		else
-		{
-			emit injec_status(false, "Invalid PID");
+			emit injec_status(false, "File not selected");
 			return;
 		}
-	}
-	else // Process Name
-	{
+
+		// Process ID
+		if (ui.rb_pid->isChecked())
+		{
+			int id = ui.txt_pid->text().toInt();
+			if (id)
+			{
+				data.ProcessID = id;
+				processType = getProcArch(id);
+			}
+			else
+			{
+				emit injec_status(false, "Invalid PID");
+				return;
+			}
+		}
+		else // Process Name
+		{
 		
-		int index = ui.cmb_proc->currentIndex();
-		Process_Struct p = getProcessByName(ui.cmb_proc->itemText(index).toStdString().c_str());
-		if (p.pid)
-		{
-			data.ProcessID = p.pid;
-			processType = p.arch;		
+			int index = ui.cmb_proc->currentIndex();
+			Process_Struct p = getProcessByName(ui.cmb_proc->itemText(index).toStdString().c_str());
+			if (p.pid)
+			{
+				data.ProcessID = p.pid;
+				processType = p.arch;		
+			}
+			else
+			{
+				emit injec_status(false, "Invalid Process Name");
+				return;
+			}
 		}
-		else
+
+		if (processType != fileType || processType == NULL || fileType == NULL)
 		{
-			emit injec_status(false, "Invalid Process Name");
+			emit injec_status(false, "File and Process are incompatible");
 			return;
 		}
-	}
-
-	if (processType != fileType || processType == NULL || fileType == NULL)
-	{
-		emit injec_status(false, "File and Process are incompatible");
-		return;
-	}
 
 
-	switch (ui.cmb_load->currentIndex()) 
-	{
-		case 1:  data.Mode = INJECTION_MODE::IM_LoadLibraryExW; break;
-		case 2:  data.Mode = INJECTION_MODE::IM_LdrLoadDll;		break;
-		case 3:  data.Mode = INJECTION_MODE::IM_LdrpLoadDll;    break;
-		default: data.Mode = INJECTION_MODE::IM_LoadLibraryExW; break;
-	}
+		switch (ui.cmb_load->currentIndex()) 
+		{
+			case 1:  data.Mode = INJECTION_MODE::IM_LoadLibraryExW; break;
+			case 2:  data.Mode = INJECTION_MODE::IM_LdrLoadDll;		break;
+			case 3:  data.Mode = INJECTION_MODE::IM_LdrpLoadDll;    break;
+			default: data.Mode = INJECTION_MODE::IM_LoadLibraryExW; break;
+		}
 
-	switch (ui.cmb_create->currentIndex())
-	{
-		case 1:  data.Method = LAUNCH_METHOD::LM_NtCreateThreadEx;	break;
-		case 2:  data.Method = LAUNCH_METHOD::LM_HijackThread;		break;
-		case 3:  data.Method = LAUNCH_METHOD::LM_SetWindowsHookEx;  break;
-		default: data.Method = LAUNCH_METHOD::LM_QueueUserAPC;		break;
-	}
+		switch (ui.cmb_create->currentIndex())
+		{
+			case 1:  data.Method = LAUNCH_METHOD::LM_NtCreateThreadEx;	break;
+			case 2:  data.Method = LAUNCH_METHOD::LM_HijackThread;		break;
+			case 3:  data.Method = LAUNCH_METHOD::LM_SetWindowsHookEx;  break;
+			default: data.Method = LAUNCH_METHOD::LM_QueueUserAPC;		break;
+		}
 
-	if (ui.cmb_peh->currentIndex() == 1)	data.Flags |= INJ_ERASE_HEADER;
-	if (ui.cmb_peh->currentIndex() == 2)	data.Flags |= INJ_FAKE_HEADER;
-	if (ui.cb_unlink->isChecked())			data.Flags |= INJ_UNLINK_FROM_PEB;
-	if (ui.cb_clock->isChecked())			data.Flags |= INJ_THREAD_CREATE_CLOAKED;
-	if (ui.cb_random->isChecked())			data.Flags |= INJ_SCRAMBLE_DLL_NAME;
-	if (ui.cb_copy->isChecked())			data.Flags |= INJ_LOAD_DLL_COPY;
-	if (ui.cb_hijack->isChecked())			data.Flags |= INJ_HIJACK_HANDLE;
+		if (ui.cmb_peh->currentIndex() == 1)	data.Flags |= INJ_ERASE_HEADER;
+		if (ui.cmb_peh->currentIndex() == 2)	data.Flags |= INJ_FAKE_HEADER;
+		if (ui.cb_unlink->isChecked())			data.Flags |= INJ_UNLINK_FROM_PEB;
+		if (ui.cb_clock->isChecked())			data.Flags |= INJ_THREAD_CREATE_CLOAKED;
+		if (ui.cb_random->isChecked())			data.Flags |= INJ_SCRAMBLE_DLL_NAME;
+		if (ui.cb_copy->isChecked())			data.Flags |= INJ_LOAD_DLL_COPY;
+		if (ui.cb_hijack->isChecked())			data.Flags |= INJ_HIJACK_HANDLE;
 	
-	if (data.Mode == INJECTION_MODE::IM_ManualMap)
-	{
-		if (ui.cb_shift->isChecked())		data.Flags |= INJ_MM_SHIFT_MODULE;
-		if (ui.cb_clean->isChecked())		data.Flags |= INJ_MM_CLEAN_DATA_DIR;
-		if (ui.cb_imports->isChecked())		data.Flags |= INJ_MM_RESOLVE_IMPORTS;
-		if (ui.cb_delay->isChecked())		data.Flags |= INJ_MM_RESOLVE_DELAY_IMPORTS;
-		if (ui.cb_tls->isChecked())			data.Flags |= INJ_MM_EXECUTE_TLS;
-		if (ui.cb_seh->isChecked())			data.Flags |= INJ_MM_ENABLE_SEH;
-		if (ui.cb_protection->isChecked())	data.Flags |= INJ_MM_SET_PAGE_PROTECTIONS;
-		if (ui.cb_security->isChecked())	data.Flags |= INJ_MM_INIT_SECURITY_COOKIE;
-		if (ui.cb_main->isChecked())		data.Flags |= INJ_MM_RUN_DLL_MAIN;		
-	}
+		if (data.Mode == INJECTION_MODE::IM_ManualMap)
+		{
+			if (ui.cb_shift->isChecked())		data.Flags |= INJ_MM_SHIFT_MODULE;
+			if (ui.cb_clean->isChecked())		data.Flags |= INJ_MM_CLEAN_DATA_DIR;
+			if (ui.cb_imports->isChecked())		data.Flags |= INJ_MM_RESOLVE_IMPORTS;
+			if (ui.cb_delay->isChecked())		data.Flags |= INJ_MM_RESOLVE_DELAY_IMPORTS;
+			if (ui.cb_tls->isChecked())			data.Flags |= INJ_MM_EXECUTE_TLS;
+			if (ui.cb_seh->isChecked())			data.Flags |= INJ_MM_ENABLE_SEH;
+			if (ui.cb_protection->isChecked())	data.Flags |= INJ_MM_SET_PAGE_PROTECTIONS;
+			if (ui.cb_main->isChecked())		data.Flags |= INJ_MM_RUN_DLL_MAIN;		
+		}
 
-	//HINSTANCE	hinstLib = LoadLibraryA("C:\\Users\\kage\\Downloads\\GuidedHacking-Injector-master\\GuidedHacking-Injector-master\\GH Injector Library\\Release\\x64\\GH Injector - x64.dll");
+		//HINSTANCE	hinstLib = LoadLibraryA("C:\\Users\\kage\\Downloads\\GuidedHacking-Injector-master\\GuidedHacking-Injector-master\\GH Injector Library\\Release\\x64\\GH Injector - x64.dll");
 
-	HINSTANCE hInjectionMod = LoadLibrary(GH_INJ_MOD_NAME);
-	if (hInjectionMod == NULL)
-	{
-		emit injec_status(false, "GH Injector - xNN.dll not found");
-		return;
-	}
+		//HINSTANCE hInjectionMod = LoadLibrary(GH_INJ_MOD_NAME);
+		//if (hInjectionMod == NULL)
+		//{
+		//	emit injec_status(false, "GH Injector - xNN.dll not found");
+		//	return;
+		//}
 
-	f_InjectA injectFunc = (f_InjectA)GetProcAddress(hInjectionMod, "InjectA");
-	if (injectFunc == NULL)
-	{
-		BOOL fFreeResult = FreeLibrary(hInjectionMod);
-		emit injec_status(false, "InjectA not found");
-		return;
-	}
+		//f_InjectA injectFunc = (f_InjectA)GetProcAddress(hInjectionMod, "InjectA");
+		//if (injectFunc == NULL)
+		//{
+		//	BOOL fFreeResult = FreeLibrary(hInjectionMod);
+		//	emit injec_status(false, "InjectA not found");
+		//	return;
+		//}
 
-	DWORD res = injectFunc(&data);
-	if (res)
-	{
-		BOOL fFreeResult = FreeLibrary(hInjectionMod);
-		QString errorCode("\nLast Errorcode" + QString::number(data.LastErrorCode));
-		emit injec_status(false, "InjectA failed with " + errorCode);
-		return;
-	}
+		if (injectFunc == nullptr)
+		{
+			emit injec_status(false, "InjectA not found");
+			return;
+		}
 
-	if (ui.cb_close->isChecked())
-	{
-		qApp->exit(0);
-		return;
+
+		DWORD res = injectFunc(&data);
+		if (res)
+		{
+			//BOOL fFreeResult = FreeLibrary(hInjectionMod);
+			QString errorCode("\nLast Errorcode" + QString::number(data.LastErrorCode));
+			emit injec_status(false, "InjectA failed with " + errorCode);
+			return;
+		}
+
+		if (ui.cb_close->isChecked())
+		{
+			qApp->exit(0);
+			return;
+		}
+
 	}
 
 	emit injec_status(true, "Sucess Injection");
@@ -787,6 +873,29 @@ void GuiMain::injec_status(bool ok, QString msg)
 		messageBox.critical(0, "Error", msg);
 		messageBox.setFixedSize(500, 200);
 	}
+}
+
+void GuiMain::load_Dll()
+{
+	hInjectionMod = LoadLibrary(GH_INJ_MOD_NAME);
+	if (hInjectionMod == NULL)
+	{
+		emit injec_status(false, "GH Injector - xNN.dll not found");
+		return;
+	}
+
+	injectFunc = (f_InjectA)GetProcAddress(hInjectionMod, "InjectA");
+	if (injectFunc == NULL)
+	{
+		BOOL fFreeResult = FreeLibrary(hInjectionMod);
+		emit injec_status(false, "InjectA not found");
+		return;
+	}
+}
+
+void GuiMain::free_Dll()
+{
+	BOOL fFreeResult = FreeLibrary(hInjectionMod);
 }
 
 
@@ -836,7 +945,6 @@ void GuiMain::tooltip_change()
 	ui.cb_tls->setToolTipDuration(duration);
 	ui.cb_seh->setToolTipDuration(duration);
 	ui.cb_protection->setToolTipDuration(duration);
-	ui.cb_security->setToolTipDuration(duration);
 	ui.cb_main->setToolTipDuration(duration);
 
 	ui.btn_reset->setToolTipDuration(duration);
@@ -856,12 +964,12 @@ void GuiMain::tooltip_change()
 
 void GuiMain::open_help()
 {
-	bool ok = QDesktopServices::openUrl(QUrl("https://guidedhacking.com/resources/guided-hacking-dll-injector.4/", QUrl::TolerantMode));
+	bool ok = QDesktopServices::openUrl(QUrl(GH_HELP_URL, QUrl::TolerantMode));
 }
 
 void GuiMain::open_log()
 {
-	bool ok = QDesktopServices::openUrl(QUrl("https://pastebin.com/eN7KPX3x", QUrl::TolerantMode));
+	bool ok = QDesktopServices::openUrl(QUrl(GH_LOG_URL, QUrl::TolerantMode));
 }
 
 void GuiMain::check_online_version()
@@ -869,11 +977,15 @@ void GuiMain::check_online_version()
 
 	ui.btn_version->setText("check version...");
 	ui.btn_version->setEnabled(false);
-#ifdef _DEBUG
-	ver_Manager->get(QNetworkRequest(QUrl("http://nas:80/gh_version.html")));
-#else
-	ver_Manager->get(QNetworkRequest(QUrl("https://guidedhacking.com/gh/inj/")));
-#endif // _DEBUG	
+
+	std::string ver = getVersionFromIE();
+	onlineVersion = QString::fromUtf8(ver.c_str());
+	emit download_start();
+	return;
+
+	// Old
+	ver_Manager->get(QNetworkRequest(QUrl(GH_VERSION_URL)));
+
 	return;	
 }
 
@@ -963,7 +1075,7 @@ void GuiMain::download_finish()
 	auto w = wStr.begin();
 	while (w != wStr.end())
 	{
-		if (*w == '\/')
+		if (*w == '/')
 		{
 			wStr2.append(L"\\");
 		}

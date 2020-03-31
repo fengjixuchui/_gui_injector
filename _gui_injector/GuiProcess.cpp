@@ -11,26 +11,35 @@ GuiProcess::GuiProcess(QWidget* parent)
 	connect(ui.cmb_arch, SIGNAL(currentIndexChanged(int)), this, SLOT(filter_change(int)));
 	connect(ui.txt_filter, &QLineEdit::textChanged, this, &GuiProcess::name_change);
 	connect(ui.btn_select, SIGNAL(clicked()), this, SLOT(proc_select()));
+	connect(ui.cb_session, SIGNAL(stateChanged(int)), this, SLOT(session_change()));
 
 	for (int i = 0; i <= 3; i++)
 		ui.tree_process->resizeColumnToContents(i);
+
 }
 
 GuiProcess::~GuiProcess()
 {
 }
 
-
 void GuiProcess::refresh_gui()
 {
-	// Architecture Filter
-	int index = ui.cmb_arch->currentIndex();
+	// Architecture & session Filter
+	int index	= ui.cmb_arch->currentIndex();
+	int own_session = getProcSession(GetCurrentProcessId());
 
 	QTreeWidgetItemIterator it(ui.tree_process);
 	while (*it)
 	{
 		QString strArch = (*it)->text(3);
 		int arch = GuiMain::str_to_arch(strArch);
+		int pid  = (*it)->text(1).toInt();
+
+		if (pid == GetCurrentProcessId())
+		{
+			++it;
+			continue;
+		}
 
 		if (index == 0) // All process
 		{
@@ -47,6 +56,16 @@ void GuiProcess::refresh_gui()
 				(*it)->setHidden(true);
 			}
 		}
+
+		if (ui.cb_session->isChecked())
+		{
+			int target_session = getProcSession(pid);
+			if (target_session != own_session && own_session != -1)
+			{
+				(*it)->setHidden(true);
+			}
+		}
+
 		++it;
 	}
 
@@ -106,6 +125,11 @@ void GuiProcess::filter_change(int i)
 	emit refresh_gui();
 }
 
+void GuiProcess::session_change()
+{
+	emit refresh_gui();
+}
+
 void GuiProcess::name_change(const QString& str)
 {
 	emit refresh_gui();
@@ -129,7 +153,6 @@ void GuiProcess::proc_select()
 	this->hide();
 }
 
-
 void GuiProcess::get_from_inj(Process_State_Struct* procStateStruct, Process_Struct* procStruct)
 {
 	pss = procStateStruct;
@@ -139,6 +162,11 @@ void GuiProcess::get_from_inj(Process_State_Struct* procStateStruct, Process_Str
 	ui.cmb_arch->setCurrentIndex(pss->cmbArch);
 	ui.cb_session->setChecked(pss->cbSession);
 	memset(ps, 0, sizeof(Process_Struct));
+
+#ifdef _WIN32
+	ui.cmb_arch->setDisabled(true);
+	ui.cmb_arch->setCurrentIndex(ARCH::X86);
+#endif // WIN64
 
 	refresh_process();
 }

@@ -85,14 +85,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(ProjectDir)framelesswindow</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Static|Win32'">
     <IntDir>$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);$(ProjectDir)framelesswindow</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(ProjectDir)framelesswindow</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(ProjectDir)framelesswindow</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Static|x64'">
+    <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);$(ProjectDir)framelesswindow</LibraryPath>
   </PropertyGroup>
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt_defaults.props')">
     <Import Project="$(QtMsBuild)\qt_defaults.props" />
@@ -131,11 +143,13 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <AdditionalIncludeDirectories>$(ProjectDir)framelesswindow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Urlmon.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -145,11 +159,14 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <AdditionalIncludeDirectories>$(ProjectDir)framelesswindow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Urlmon.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)framelesswindow;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -158,11 +175,13 @@
       <DebugInformationFormat />
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <AdditionalIncludeDirectories>$(ProjectDir)framelesswindow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <GenerateDebugInformation>false</GenerateDebugInformation>
+      <AdditionalDependencies>Urlmon.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -172,11 +191,13 @@
       </DebugInformationFormat>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <AdditionalIncludeDirectories>$(ProjectDir)framelesswindow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <GenerateDebugInformation>false</GenerateDebugInformation>
+      <AdditionalDependencies>Urlmon.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Static|x64'">
@@ -187,11 +208,13 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
       <Optimization>MaxSpeed</Optimization>
+      <AdditionalIncludeDirectories>$(ProjectDir)framelesswindow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <GenerateDebugInformation>false</GenerateDebugInformation>
+      <AdditionalDependencies>Urlmon.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Static|Win32'">
@@ -202,11 +225,13 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
       <Optimization>MaxSpeed</Optimization>
+      <AdditionalIncludeDirectories>$(ProjectDir)framelesswindow;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\$(ProjectName).exe</OutputFile>
       <GenerateDebugInformation>false</GenerateDebugInformation>
+      <AdditionalDependencies>Urlmon.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -224,6 +249,7 @@
   <ItemGroup>
     <QtUic Include="GuiMain.ui" />
     <QtUic Include="GuiProcess.ui" />
+    <QtUic Include="mainwindow.ui" />
   </ItemGroup>
   <ItemGroup>
     <QtRcc Include="GuiMain.qrc" />
@@ -233,13 +259,17 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Banner.h" />
+    <ClInclude Include="resource.h" />
     <QtMoc Include="DownloadManager.h" />
     <ClInclude Include="Compress.h" />
     <ClInclude Include="Injection.h" />
     <ClInclude Include="Process.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="ToDo.txt" />
+    <None Include="..\README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="_gui_injector.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

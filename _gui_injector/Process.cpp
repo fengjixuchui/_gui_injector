@@ -5,6 +5,7 @@
 #include <fstream>
 #include "process.h"
 
+f_NtQueryInformationProcess p_NtQueryInformationProcess = nullptr;
 
 enum ARCH getFileArch(const char* szDllFile)
 {
@@ -74,7 +75,7 @@ enum ARCH getFileArch(const char* szDllFile)
 
 enum ARCH getProcArch(const int pid)
 {
-    HANDLE hOpenProc = OpenProcess(PROCESS_QUERY_INFORMATION, NULL, pid);
+    HANDLE hOpenProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, NULL, pid);
     if (hOpenProc != NULL)
     {
         BOOL tempWow64 = FALSE;
@@ -94,7 +95,44 @@ enum ARCH getProcArch(const int pid)
         }
         CloseHandle(hOpenProc);
     }
+
     return NONE;
+}
+
+int getProcSession(const int pid)
+{
+    if (!p_NtQueryInformationProcess)
+    {
+        auto h_nt_dll = GetModuleHandleA("ntdll.dll");
+        if (!h_nt_dll)
+        {
+            return -1;
+        }
+
+        p_NtQueryInformationProcess = reinterpret_cast<f_NtQueryInformationProcess>(GetProcAddress(h_nt_dll, "NtQueryInformationProcess"));
+        if (!p_NtQueryInformationProcess)
+        {
+            return -1;
+        }
+    }
+	
+    HANDLE hTargetProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!hTargetProc)
+    {
+        return -1;
+    }
+
+    PROCESS_SESSION_INFORMATION psi{ 0 };
+    NTSTATUS ntRet = p_NtQueryInformationProcess(hTargetProc, ProcessSessionInformation, &psi, sizeof(psi), nullptr);
+    
+    CloseHandle(hTargetProc);
+	
+    if (NT_FAIL(ntRet))
+    {
+        return -1;
+    }
+
+	return (int)psi.SessionId;    
 }
 
 Process_Struct getProcessByName(const char* proc)
@@ -129,8 +167,8 @@ Process_Struct getProcessByName(const char* proc)
 
             } while (Process32Next(hSnapshot, &procEntry));
         }
+        CloseHandle(hSnapshot);
     }
-    CloseHandle(hSnapshot);
     return ps;
 }
 
@@ -166,8 +204,8 @@ Process_Struct getProcessByPID(const int pid)
 
             } while (Process32Next(hSnapshot, &procEntry));
         }
+        CloseHandle(hSnapshot);
     }
-    CloseHandle(hSnapshot);
     return ps;
 }
 
@@ -196,8 +234,8 @@ bool getProcessList(std::vector<Process_Struct>& pl)
 
             } while (Process32Next(hSnapshot, &procEntry));
         }
+        CloseHandle(hSnapshot);
     }
-    CloseHandle(hSnapshot);
     return true;
 }
 
@@ -237,5 +275,52 @@ bool SetDebugPrivilege(bool Enable)
     }
 
     CloseHandle(hToken);
+    return TRUE;
+}
+
+bool isCorrectPlatform()
+{
+    SYSTEM_INFO stInfo;
+    GetSystemInfo(&stInfo);
+    int proccessArch = stInfo.wProcessorArchitecture;
+
+    SYSTEM_INFO stInfo2;
+    GetNativeSystemInfo(&stInfo2);
+    int platformArch = stInfo2.wProcessorArchitecture;
+
+    if (proccessArch == platformArch)
+        return true;
+
+    return false;
+}
+
+BOOL StartProcess(const char* szExeFile)
+{
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+
+    ZeroMemory(&pi, sizeof(pi));
+
+    wchar_t wtext[MAX_PATH];
+    mbstowcs(wtext, szExeFile, strlen(szExeFile) + 1);
+    LPWSTR ptr = wtext;
+
+    bool status = CreateProcess(NULL, ptr, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL, &si, &pi);
+
+    if (!status)
+    {
+        //printf("Failed");
+        return FALSE;
+    }
+
+    //WaitForSingleObject(pi.hProcess, INFINITE);
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    //printf("Success Process created");
+
     return TRUE;
 }

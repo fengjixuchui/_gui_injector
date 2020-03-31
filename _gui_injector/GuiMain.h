@@ -9,6 +9,7 @@
 #include "DownloadManager.h"
 #include "GuiProcess.h"
 #include "Process.h"
+#include "Injection.h"
 
 enum class UPDATE
 {
@@ -16,6 +17,19 @@ enum class UPDATE
 	UPDATE,
 	DOWNLOAD,
 };
+
+#define GH_INJ_EXE_NAME64A "GH Injector - x64.exe"
+#define GH_INJ_EXE_NAME86A "GH Injector - x86.exe"
+
+#ifdef _DEBUG
+#define GH_VERSION_URL "http://nas:80/gh_version.html"
+#else
+#define GH_VERSION_URL "https://guidedhacking.com/gh/inj/"
+#endif // _DEBUG
+
+#define GH_HELP_URL "https://guidedhacking.com/resources/guided-hacking-dll-injector.4/"
+#define GH_LOG_URL "https://pastebin.com/eN7KPX3x"
+
 
 class GuiMain : public QMainWindow
 {
@@ -59,6 +73,11 @@ private:
 	QTimer* t_Auto_Inj;
 	QTimer* t_Delay_Inj;
 
+	HINSTANCE hInjectionMod;
+	f_InjectA injectFunc;
+
+	std::string getVersionFromIE();
+
 public slots:
 	void get_from_picker(Process_State_Struct* procStateStruct, Process_Struct* procStruct);
 
@@ -68,6 +87,7 @@ signals:
 private slots:
 	// Titelbar
 	void closeEvent(QCloseEvent* event);
+	void platformCheck();
 
 	// Settings
 	void rb_process_set();
@@ -97,12 +117,14 @@ private slots:
 
 	// Files
 	void add_file_dialog();
-	void add_file_to_list(QString str);
+	void add_file_to_list(QString str, QString active);
 	void remove_file();
 	void select_file();
 	void delay_inject();
 	void inject_file();
 	void injec_status(bool ok, QString msg);
+	void load_Dll();
+	void free_Dll();
 
 	// Info
 	void tooltip_change();
@@ -114,4 +136,5 @@ private slots:
 	void replyFinished(QNetworkReply* rep);
 	void download_start();
 	void download_finish();
+
 };
